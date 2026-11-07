@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 * {
   box-sizing: border-box;
 }
@@ -14,69 +10,53 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar for sleek SaaS feel */
+/* Subtle, unobtrusive scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.25);
-  border-radius: 4px;
+  background: rgba(120, 120, 120, 0.2);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.45);
+  background: rgba(120, 120, 120, 0.4);
 }
 
-/* Custom range slider styling */
+/* Range input */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
-  background: transparent;
-  border-radius: 4px;
+  height: 4px;
+  background: rgba(120, 120, 120, 0.2);
+  border-radius: 2px;
+  outline: none;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #0EA5E9;
+  background: currentColor;
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
-  border: 2px solid #FFFFFF;
-  margin-top: -6px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: none;
+  transition: transform 0.1s ease;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 14px rgba(14, 165, 233, 0.75);
 }
 
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 6px;
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 4px;
+/* Checkbox alignment and focus ring */
+input[type="checkbox"] {
+  cursor: pointer;
 }
 
-/* Keyframe Animations */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Responsive visibility helper */
-@media (min-width: 640px) {
-  .desktop-badge {
-    display: flex !important;
-  }
+button {
+  font-family: inherit;
 }
