@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import zxcvbn from "zxcvbn";
 
 const CHAR_SETS = {
-  uppercase: { label: "Uppercase Letters", detail: "A-Z", chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ" },
-  lowercase: { label: "Lowercase Letters", detail: "a-z", chars: "abcdefghijklmnopqrstuvwxyz" },
-  numbers: { label: "Numbers & Digits", detail: "0-9", chars: "0123456789" },
-  symbols: { label: "Special Symbols", detail: "!@#$…", chars: "!@#$%^&*()_+-=[]{}|;:,.<>?" },
+  uppercase: { label: "Uppercase", sample: "A-Z", chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ" },
+  lowercase: { label: "Lowercase", sample: "a-z", chars: "abcdefghijklmnopqrstuvwxyz" },
+  numbers: { label: "Numbers", sample: "0-9", chars: "0123456789" },
+  symbols: { label: "Symbols", sample: "!@#$%…", chars: "!@#$%^&*()_+-=[]{}|;:,.<>?" },
 };
 
 const MEMORABLE_WORDS = [
@@ -29,19 +29,20 @@ function getSecureRandomInt(max) {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState("check"); // "check" | "generate"
+  const [activeTab, setActiveTab] = useState("inspect"); // "inspect" | "generate"
 
-  // --- Checker State ---
+  // --- Inspector State ---
   const [password, setPassword] = useState("");
   const [visible, setVisible] = useState(false);
-  const [strength, setStrength] = useState(null);
+  const [score, setScore] = useState(null);
+  const [strengthLabel, setStrengthLabel] = useState(null);
   const [crackTime, setCrackTime] = useState(null);
   const [rawCrackTimes, setRawCrackTimes] = useState(null);
   const [feedbackWarning, setFeedbackWarning] = useState(null);
   const [feedbackSuggestions, setFeedbackSuggestions] = useState([]);
   const [breachCount, setBreachCount] = useState(null);
-  const [checking, setChecking] = useState(false);
-  const [hashPrefix, setHashPrefix] = useState(null);
+  const [checkingBreach, setCheckingBreach] = useState(false);
+  const [fullSha1, setFullSha1] = useState(null);
   const [showAttackMatrix, setShowAttackMatrix] = useState(false);
 
   // --- Generator State ---
@@ -64,12 +65,11 @@ export default function Home() {
   const [clipboardTimer, setClipboardTimer] = useState(null);
   const clipboardTimeoutRef = useRef(null);
 
-  const [genStrength, setGenStrength] = useState(null);
+  const [genStrengthLabel, setGenStrengthLabel] = useState(null);
   const [genCrackTime, setGenCrackTime] = useState(null);
 
   // --- Theme State ---
   const [theme, setTheme] = useState("system");
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [resolvedTheme, setResolvedTheme] = useState("dark");
 
   useEffect(() => {
@@ -93,39 +93,40 @@ export default function Home() {
 
   const isDark = resolvedTheme === "dark";
 
-  // SaaS Cybersecurity Design Tokens
-  const colors = {
-    pageBg: isDark ? "#090D16" : "#F8FAFC",
-    cardBg: isDark ? "#0F172A" : "#FFFFFF",
-    cardSubtle: isDark ? "#131C31" : "#F1F5F9",
-    inputBg: isDark ? "#0B111E" : "#F8FAFC",
-    border: isDark ? "#1E293B" : "#E2E8F0",
-    borderHighlight: isDark ? "#334155" : "#CBD5E1",
-    textPrimary: isDark ? "#F8FAFC" : "#0F172A",
-    textSecondary: isDark ? "#94A3B8" : "#475569",
-    textMuted: isDark ? "#64748B" : "#94A3B8",
-    trackBg: isDark ? "#1E293B" : "#E2E8F0",
-    accent: "#0EA5E9",
-    accentHover: "#38BDF8",
-    accentGlow: "rgba(14, 165, 233, 0.15)",
+  // Intentional, human-designed restrained palette (no cartoon colors or neon)
+  const t = {
+    bg: isDark ? "#0D0E11" : "#F8F9FA",
+    surface: isDark ? "#14161A" : "#FFFFFF",
+    surfaceSubtle: isDark ? "#1A1D23" : "#F1F3F5",
+    surfaceElevated: isDark ? "#20242B" : "#E9ECEF",
+    border: isDark ? "#262930" : "#E2E5E9",
+    borderHighlight: isDark ? "#363A45" : "#CED4DA",
+    text: isDark ? "#F1F3F5" : "#1A1D20",
+    textSecondary: isDark ? "#9498A4" : "#495057",
+    textMuted: isDark ? "#636773" : "#868E96",
+    track: isDark ? "#23262E" : "#E9ECEF",
+    primary: isDark ? "#EDEDEF" : "#111315",
+    primaryBg: isDark ? "#FFFFFF" : "#111315",
+    primaryText: isDark ? "#0D0E11" : "#FFFFFF",
+    accent: "#3B82F6",
     accentText: "#FFFFFF",
-    danger: "#EF4444",
-    dangerBg: isDark ? "rgba(239, 68, 68, 0.12)" : "#FEF2F2",
-    dangerBorder: isDark ? "rgba(239, 68, 68, 0.3)" : "#FECACA",
-    warning: "#F59E0B",
-    warningBg: isDark ? "rgba(245, 158, 11, 0.12)" : "#FFFBEB",
-    warningBorder: isDark ? "rgba(245, 158, 11, 0.3)" : "#FDE68A",
-    success: "#10B981",
-    successBg: isDark ? "rgba(16, 185, 129, 0.12)" : "#ECFDF5",
-    successBorder: isDark ? "rgba(16, 185, 129, 0.3)" : "#A7F3D0",
+    danger: isDark ? "#F87171" : "#DC2626",
+    dangerBg: isDark ? "rgba(239, 68, 68, 0.08)" : "#FEF2F2",
+    dangerBorder: isDark ? "rgba(239, 68, 68, 0.25)" : "#FEE2E2",
+    warning: isDark ? "#FBBF24" : "#D97706",
+    warningBg: isDark ? "rgba(245, 158, 11, 0.08)" : "#FFFBEB",
+    warningBorder: isDark ? "rgba(245, 158, 11, 0.25)" : "#FEF3C7",
+    success: isDark ? "#34D399" : "#059669",
+    successBg: isDark ? "rgba(16, 185, 129, 0.08)" : "#ECFDF5",
+    successBorder: isDark ? "rgba(16, 185, 129, 0.25)" : "#D1FAE5",
   };
 
-  const mono = "ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace";
-  const sans = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const mono = "ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace";
+  const sans = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
-  function formatCrackTime(seconds) {
-    if (seconds < 0.01) return "instantly";
-    if (seconds < 1) return "less than a second";
+  function formatCrackDuration(seconds) {
+    if (seconds < 0.01) return "instant";
+    if (seconds < 1) return "< 1 second";
 
     const units = [
       { label: "seconds", secs: 1 },
@@ -143,12 +144,13 @@ export default function Home() {
     }
 
     const value = seconds / chosen.secs;
-    return `${value.toFixed(1)} ${chosen.label}`;
+    return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${chosen.label}`;
   }
 
-  function getStrength(pwd) {
+  function evaluateStrength(pwd) {
     if (!pwd) {
       return {
+        score: null,
         label: null,
         crackTime: null,
         rawCrackTimes: null,
@@ -157,105 +159,95 @@ export default function Home() {
       };
     }
     const result = zxcvbn(pwd);
-    let label = "Weak";
-    if (result.score >= 4) label = "Strong";
-    else if (result.score >= 2) label = "Medium";
-
+    const scoreMap = ["Very Weak", "Weak", "Medium", "Strong", "Very Strong"];
     const rawSeconds = result.crack_times_seconds.offline_fast_hashing_1e10_per_second;
 
     return {
-      label,
-      crackTime: formatCrackTime(rawSeconds),
+      score: result.score,
+      label: scoreMap[result.score],
+      crackTime: formatCrackDuration(rawSeconds),
       rawCrackTimes: result.crack_times_seconds,
       warning: result.feedback.warning || null,
       suggestions: result.feedback.suggestions || [],
     };
   }
 
-  function getChecklist(pwd) {
-    return [
-      { label: "8+ characters", passed: pwd.length >= 8 },
-      { label: "Uppercase letter", passed: /[A-Z]/.test(pwd) },
-      { label: "Number digit", passed: /[0-9]/.test(pwd) },
-      { label: "Special symbol", passed: /[^A-Za-z0-9]/.test(pwd) },
-    ];
-  }
-
-  async function sha1(text) {
+  async function calculateSha1(text) {
     const data = new TextEncoder().encode(text);
-    const hashBuffer = await crypto.subtle.digest("SHA-1", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray
-      .map((byte) => byte.toString(16).padStart(2, "0"))
+    const buffer = await crypto.subtle.digest("SHA-1", data);
+    return Array.from(new Uint8Array(buffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
       .join("")
       .toUpperCase();
   }
 
-  // --- Live Debounced Password Analysis ---
+  // --- Real-time Debounced Credential Analysis ---
   useEffect(() => {
     if (!password) {
-      setStrength(null);
+      setScore(null);
+      setStrengthLabel(null);
       setCrackTime(null);
       setRawCrackTimes(null);
       setFeedbackWarning(null);
       setFeedbackSuggestions([]);
       setBreachCount(null);
-      setHashPrefix(null);
-      setChecking(false);
+      setFullSha1(null);
+      setCheckingBreach(false);
       return;
     }
 
-    // 1. Instant local zxcvbn evaluation
-    const result = getStrength(password);
-    setStrength(result.label);
+    // 1. Immediate local heuristic analysis
+    const result = evaluateStrength(password);
+    setScore(result.score);
+    setStrengthLabel(result.label);
     setCrackTime(result.crackTime);
     setRawCrackTimes(result.rawCrackTimes);
     setFeedbackWarning(result.warning);
     setFeedbackSuggestions(result.suggestions);
 
-    // 2. Debounced asynchronous k-anonymity breach check
-    setChecking(true);
+    // 2. Debounced k-anonymity breach query
+    setCheckingBreach(true);
     const timer = setTimeout(async () => {
       try {
-        const fullHash = await sha1(password);
-        const prefix = fullHash.slice(0, 5);
-        const suffix = fullHash.slice(5);
-        setHashPrefix(prefix);
+        const hash = await calculateSha1(password);
+        setFullSha1(hash);
+        const prefix = hash.slice(0, 5);
+        const suffix = hash.slice(5);
 
-        const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+        const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
           headers: { "Add-Padding": "true" },
         });
 
-        if (!response.ok) throw new Error("HIBP Network Error");
+        if (!res.ok) throw new Error("HIBP API unreachable");
 
-        const text = await response.text();
+        const text = await res.text();
         const lines = text.split("\n");
-        let found = 0;
+        let foundCount = 0;
         for (const line of lines) {
           const [lineSuffix, count] = line.split(":");
           if (lineSuffix && lineSuffix.trim() === suffix) {
-            found = parseInt(count, 10);
+            foundCount = parseInt(count, 10);
             break;
           }
         }
-        setBreachCount(found);
 
-        // Security best practice: downgrade compromised password to Weak
-        if (found > 0) {
-          setStrength("Weak");
+        setBreachCount(foundCount);
+        if (foundCount > 0) {
+          setStrengthLabel("Compromised");
+          setScore(0);
         }
       } catch (err) {
         setBreachCount(-1);
       } finally {
-        setChecking(false);
+        setCheckingBreach(false);
       }
-    }, 450);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [password]);
 
-  // --- Cryptographically Secure Password / Passphrase Generator ---
-  const generatePassword = useCallback(() => {
+  // --- Generator Engine ---
+  const generateSecret = useCallback(() => {
     let result = "";
 
     if (genMode === "random") {
@@ -263,53 +255,53 @@ export default function Home() {
       if (activeKeys.length === 0) return;
 
       let pool = "";
-      const mandatoryChars = [];
+      const mandatory = [];
 
       activeKeys.forEach((key) => {
-        const setChars = CHAR_SETS[key].chars;
-        pool += setChars;
-        mandatoryChars.push(setChars[getSecureRandomInt(setChars.length)]);
+        const chars = CHAR_SETS[key].chars;
+        pool += chars;
+        mandatory.push(chars[getSecureRandomInt(chars.length)]);
       });
 
-      const remainingCount = Math.max(0, genLength - mandatoryChars.length);
-      const resultChars = [...mandatoryChars];
+      const remaining = Math.max(0, genLength - mandatory.length);
+      const chars = [...mandatory];
 
-      for (let i = 0; i < remainingCount; i++) {
-        resultChars.push(pool[getSecureRandomInt(pool.length)]);
+      for (let i = 0; i < remaining; i++) {
+        chars.push(pool[getSecureRandomInt(pool.length)]);
       }
 
-      for (let i = resultChars.length - 1; i > 0; i--) {
+      for (let i = chars.length - 1; i > 0; i--) {
         const j = getSecureRandomInt(i + 1);
-        const temp = resultChars[i];
-        resultChars[i] = resultChars[j];
-        resultChars[j] = temp;
+        const temp = chars[i];
+        chars[i] = chars[j];
+        chars[j] = temp;
       }
 
-      result = resultChars.join("");
+      result = chars.join("");
     } else {
-      const chosenWords = [];
+      const words = [];
       for (let i = 0; i < wordCount; i++) {
         let word = MEMORABLE_WORDS[getSecureRandomInt(MEMORABLE_WORDS.length)];
         if (capitalizeWords) {
           word = word.charAt(0).toUpperCase() + word.slice(1);
         }
-        chosenWords.push(word);
+        words.push(word);
       }
 
       if (includeNumberInPassphrase) {
-        const randomDigit = getSecureRandomInt(100);
-        const insertIndex = getSecureRandomInt(chosenWords.length);
-        chosenWords[insertIndex] = `${chosenWords[insertIndex]}${randomDigit}`;
+        const digit = getSecureRandomInt(100);
+        const idx = getSecureRandomInt(words.length);
+        words[idx] = `${words[idx]}${digit}`;
       }
 
-      result = chosenWords.join(separator);
+      result = words.join(separator);
     }
 
     setGeneratedPassword(result);
     setCopied(false);
 
-    const evalResult = getStrength(result);
-    setGenStrength(evalResult.label);
+    const evalResult = evaluateStrength(result);
+    setGenStrengthLabel(evalResult.label);
     setGenCrackTime(evalResult.crackTime);
   }, [
     genMode,
@@ -322,8 +314,8 @@ export default function Home() {
   ]);
 
   useEffect(() => {
-    generatePassword();
-  }, [generatePassword]);
+    generateSecret();
+  }, [generateSecret]);
 
   function handleOptionToggle(key) {
     const activeCount = Object.values(genOptions).filter(Boolean).length;
@@ -335,24 +327,24 @@ export default function Home() {
     }));
   }
 
-  // --- Copy with 30-Second Ephemeral Auto-Clear ---
-  async function copyToClipboard(textToCopy) {
-    const target = textToCopy || generatedPassword;
-    if (!target) return;
+  // --- Copy with 30s Ephemeral Memory Auto-Clear ---
+  async function copyToClipboard(val) {
+    const text = val || generatedPassword;
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(target);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
 
       if (clipboardTimeoutRef.current) {
         clearInterval(clipboardTimeoutRef.current);
       }
 
-      let secondsLeft = 30;
-      setClipboardTimer(secondsLeft);
+      let sec = 30;
+      setClipboardTimer(sec);
 
       clipboardTimeoutRef.current = setInterval(async () => {
-        secondsLeft -= 1;
-        if (secondsLeft <= 0) {
+        sec -= 1;
+        if (sec <= 0) {
           clearInterval(clipboardTimeoutRef.current);
           setClipboardTimer(null);
           setCopied(false);
@@ -362,11 +354,11 @@ export default function Home() {
             // Buffer wipe fallback
           }
         } else {
-          setClipboardTimer(secondsLeft);
+          setClipboardTimer(sec);
         }
       }, 1000);
     } catch (err) {
-      console.error("Clipboard copy failed:", err);
+      console.error("Clipboard copy failed", err);
     }
   }
 
@@ -376,27 +368,27 @@ export default function Home() {
     };
   }, []);
 
-  function sendToChecker() {
+  function transferToInspector() {
     setPassword(generatedPassword);
-    setActiveTab("check");
+    setActiveTab("inspect");
   }
 
-  const checklist = getChecklist(password);
-
-  const strengthLevels = ["Weak", "Medium", "Strong"];
-  const strengthColor = {
-    Weak: colors.danger,
-    Medium: colors.warning,
-    Strong: colors.success,
-  };
-  const activeSegments = strength ? strengthLevels.indexOf(strength) + 1 : 0;
-  const genActiveSegments = genStrength ? strengthLevels.indexOf(genStrength) + 1 : 0;
-
-  const themeOptions = [
-    { value: "light", label: "Light Mode" },
-    { value: "dark", label: "Dark Mode" },
-    { value: "system", label: "System Default" },
+  // Heuristic checklist
+  const checklist = [
+    { label: "At least 10 characters", passed: password.length >= 10 },
+    { label: "Uppercase & lowercase letters", passed: /[A-Z]/.test(password) && /[a-z]/.test(password) },
+    { label: "Numeric digits", passed: /[0-9]/.test(password) },
+    { label: "Special symbol", passed: /[^A-Za-z0-9]/.test(password) },
+    { label: "Uncompromised in known breaches", passed: breachCount === 0 },
   ];
+
+  const getScoreColor = (val) => {
+    if (breachCount > 0) return t.danger;
+    if (val === null || val === undefined) return t.track;
+    if (val <= 1) return t.danger;
+    if (val === 2) return t.warning;
+    return t.success;
+  };
 
   const activeOptionCount = Object.values(genOptions).filter(Boolean).length;
 
@@ -404,277 +396,186 @@ export default function Home() {
     <div
       style={{
         minHeight: "100vh",
-        background: colors.pageBg,
+        background: t.bg,
         fontFamily: sans,
-        color: colors.textPrimary,
+        color: t.text,
         display: "flex",
         flexDirection: "column",
-        transition: "background 0.2s ease, color 0.2s ease",
+        transition: "background 0.15s ease, color 0.15s ease",
       }}
     >
-      {/* SaaS Top Navigation Bar */}
+      {/* Top Application Header */}
       <header
         style={{
-          borderBottom: `1px solid ${colors.border}`,
-          background: isDark ? "rgba(15, 23, 42, 0.85)" : "rgba(255, 255, 255, 0.85)",
-          backdropFilter: "blur(12px)",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          padding: "12px 24px",
+          borderBottom: `1px solid ${t.border}`,
+          background: t.surface,
+          padding: "12px 20px",
         }}
       >
         <div
           style={{
-            maxWidth: 1040,
+            maxWidth: 880,
             margin: "0 auto",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
-          {/* Brand Identity */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
+          {/* Identity */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                background: `linear-gradient(135deg, ${colors.accent}, #0284C7)`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: `0 0 16px ${colors.accentGlow}`,
-                color: "#FFFFFF",
-                fontSize: 16,
-                fontWeight: 800,
-              }}
-            >
-              ⛨
-            </div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-0.02em" }}>
-                  CYBERSHIELD
-                </span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontFamily: mono,
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    background: colors.cardSubtle,
-                    color: colors.accent,
-                    border: `1px solid ${colors.border}`,
-                    fontWeight: 700,
-                  }}
-                >
-                  LAB v2.0
-                </span>
-              </div>
-              <p style={{ margin: 0, fontSize: 11, color: colors.textMuted }}>
-                Zero-Knowledge Credential Security &amp; Entropy Engine
-              </p>
-            </div>
-          </div>
-
-          {/* Right Controls: Security Badge & Theme Switcher */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
-              style={{
-                display: "none",
+                fontFamily: mono,
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: "-0.01em",
+                color: t.text,
+                display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: checkingBreach ? t.warning : t.success,
+                  display: "inline-block",
+                }}
+              />
+              KEYGUARD
+            </span>
+            <span style={{ color: t.textMuted, fontSize: 13 }}>/</span>
+            <span style={{ fontSize: 13, color: t.textSecondary, fontWeight: 400 }}>
+              Password Inspector &amp; Generator
+            </span>
+          </div>
+
+          {/* Right Controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
                 fontSize: 11,
                 fontFamily: mono,
-                padding: "4px 10px",
-                borderRadius: 6,
-                background: colors.successBg,
-                color: colors.success,
-                border: `1px solid ${colors.successBorder}`,
+                color: t.textMuted,
+                padding: "3px 8px",
+                borderRadius: 4,
+                border: `1px solid ${t.border}`,
+                background: t.surfaceSubtle,
               }}
-              className="desktop-badge"
             >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: colors.success }} />
-              NIST SP 800-63B ALIGNED
-            </div>
+              k-anonymity active
+            </span>
 
-            {/* Theme Dropdown */}
-            <div style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-                aria-label="Theme selector"
-                style={{
-                  height: 34,
-                  padding: "0 12px",
-                  fontSize: 12.5,
-                  fontWeight: 600,
-                  border: `1px solid ${colors.border}`,
-                  borderRadius: 8,
-                  background: colors.cardBg,
-                  color: colors.textSecondary,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <span>{isDark ? "🌙 Dark" : "☀️ Light"}</span>
-                <span style={{ fontSize: 9 }}>▼</span>
-              </button>
-
-              {themeMenuOpen && (
-                <div
+            {/* Clean Segmented Theme Switcher */}
+            <div
+              style={{
+                display: "inline-flex",
+                background: t.surfaceSubtle,
+                borderRadius: 6,
+                border: `1px solid ${t.border}`,
+                padding: 2,
+              }}
+            >
+              {["system", "dark", "light"].map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setTheme(mode)}
                   style={{
-                    position: "absolute",
-                    top: 40,
-                    right: 0,
-                    background: colors.cardBg,
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: 8,
-                    overflow: "hidden",
-                    boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
-                    minWidth: 140,
-                    zIndex: 60,
+                    padding: "3px 8px",
+                    fontSize: 11,
+                    fontFamily: mono,
+                    border: "none",
+                    borderRadius: 4,
+                    background: theme === mode ? t.surface : "transparent",
+                    color: theme === mode ? t.text : t.textMuted,
+                    cursor: "pointer",
+                    textTransform: "capitalize",
                   }}
                 >
-                  {themeOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setTheme(opt.value);
-                        setThemeMenuOpen(false);
-                      }}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        padding: "9px 12px",
-                        fontSize: 12,
-                        fontWeight: theme === opt.value ? 700 : 500,
-                        border: "none",
-                        background: theme === opt.value ? colors.cardSubtle : "transparent",
-                        color: theme === opt.value ? colors.accent : colors.textPrimary,
-                        textAlign: "left",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  {mode}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main SaaS Dashboard Container */}
+      {/* Main Container */}
       <main
         style={{
           flex: 1,
-          maxWidth: 960,
+          maxWidth: 880,
           width: "100%",
           margin: "0 auto",
-          padding: "32px 16px 64px",
+          padding: "28px 16px 48px",
         }}
       >
-        {/* Navigation Mode Segmented Pills */}
+        {/* Workspace Mode Switcher (Clean macOS/Linear-style Segment) */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 16,
-            marginBottom: 24,
+            alignItems: "flex-end",
+            marginBottom: 20,
+            borderBottom: `1px solid ${t.border}`,
+            paddingBottom: 12,
           }}
         >
-          <div>
-            <h1
-              style={{
-                fontSize: 24,
-                fontWeight: 800,
-                letterSpacing: "-0.02em",
-                margin: 0,
-                color: colors.textPrimary,
-              }}
-            >
-              {activeTab === "check" ? "Credential Auditor & Breach Analyzer" : "Cryptographic Entropy Generator"}
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13.5, color: colors.textSecondary }}>
-              {activeTab === "check"
-                ? "Evaluate mathematical brute-force resilience and query 900M+ compromised records via k-anonymity."
-                : "Create high-entropy passwords or memorable Diceware passphrases using hardware-backed CSPRNG."}
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              background: colors.cardSubtle,
-              padding: 3,
-              borderRadius: 10,
-              border: `1px solid ${colors.border}`,
-              gap: 4,
-            }}
-          >
+          <div style={{ display: "flex", gap: 4 }}>
             <button
               type="button"
-              onClick={() => setActiveTab("check")}
+              onClick={() => setActiveTab("inspect")}
               style={{
-                padding: "8px 16px",
+                padding: "6px 14px",
                 fontSize: 13,
-                fontWeight: activeTab === "check" ? 700 : 600,
-                color: activeTab === "check" ? colors.accent : colors.textSecondary,
-                background: activeTab === "check" ? colors.cardBg : "transparent",
-                border: "none",
-                borderRadius: 8,
+                fontWeight: activeTab === "inspect" ? 600 : 400,
+                color: activeTab === "inspect" ? t.text : t.textSecondary,
+                background: activeTab === "inspect" ? t.surfaceSubtle : "transparent",
+                border: `1px solid ${activeTab === "inspect" ? t.borderHighlight : "transparent"}`,
+                borderRadius: 6,
                 cursor: "pointer",
-                boxShadow: activeTab === "check" ? "0 2px 8px rgba(0,0,0,0.15)" : "none",
-                transition: "all 0.15s ease",
               }}
             >
-              🛡️ Audit Credential
+              Analyze Password
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("generate")}
               style={{
-                padding: "8px 16px",
+                padding: "6px 14px",
                 fontSize: 13,
-                fontWeight: activeTab === "generate" ? 700 : 600,
-                color: activeTab === "generate" ? colors.accent : colors.textSecondary,
-                background: activeTab === "generate" ? colors.cardBg : "transparent",
-                border: "none",
-                borderRadius: 8,
+                fontWeight: activeTab === "generate" ? 600 : 400,
+                color: activeTab === "generate" ? t.text : t.textSecondary,
+                background: activeTab === "generate" ? t.surfaceSubtle : "transparent",
+                border: `1px solid ${activeTab === "generate" ? t.borderHighlight : "transparent"}`,
+                borderRadius: 6,
                 cursor: "pointer",
-                boxShadow: activeTab === "generate" ? "0 2px 8px rgba(0,0,0,0.15)" : "none",
-                transition: "all 0.15s ease",
               }}
             >
-              ⚡ Generate Secrets
+              Generate Password
             </button>
+          </div>
+
+          <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono }}>
+            {activeTab === "inspect" ? "Local evaluation + HIBP range check" : "Hardware CSPRNG"}
           </div>
         </div>
 
         {/* ======================================================== */}
-        {/* MODULE 1: CREDENTIAL AUDITOR (CHECKER VIEW)              */}
+        {/* TAB 1: PASSWORD ANALYZER / INSPECTOR                      */}
         {/* ======================================================== */}
-        {activeTab === "check" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Primary Input Card */}
+        {activeTab === "inspect" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Input Card */}
             <div
               style={{
-                background: colors.cardBg,
-                borderRadius: 14,
-                border: `1px solid ${colors.border}`,
-                boxShadow: isDark
-                  ? "0 20px 40px -15px rgba(0,0,0,0.5)"
-                  : "0 10px 30px -10px rgba(0,0,0,0.06)",
-                padding: "24px 24px 28px",
+                background: t.surface,
+                border: `1px solid ${t.border}`,
+                borderRadius: 8,
+                padding: "20px 22px",
               }}
             >
               <div
@@ -682,58 +583,47 @@ export default function Home() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  marginBottom: 10,
+                  marginBottom: 8,
                 }}
               >
                 <label
                   style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
+                    fontSize: 11,
+                    fontFamily: mono,
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    color: t.textSecondary,
                     textTransform: "uppercase",
-                    color: colors.textSecondary,
                   }}
                 >
-                  Candidate Secret
+                  Password input
                 </label>
-
                 {password && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontFamily: mono,
-                      color: colors.textMuted,
-                      background: colors.cardSubtle,
-                      padding: "2px 8px",
-                      borderRadius: 4,
-                    }}
-                  >
-                    {password.length} chars
+                  <span style={{ fontSize: 11, fontFamily: mono, color: t.textMuted }}>
+                    {password.length} characters
                   </span>
                 )}
               </div>
 
-              {/* Password Input Field with Actions */}
+              {/* Password Input Field */}
               <div style={{ position: "relative" }}>
                 <input
                   type={visible ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter or paste password to evaluate…"
+                  placeholder="Type or paste a password…"
                   autoComplete="off"
                   spellCheck="false"
                   style={{
                     width: "100%",
-                    padding: "14px 100px 14px 16px",
-                    fontSize: 16,
+                    padding: "11px 90px 11px 13px",
+                    fontSize: 15,
                     fontFamily: mono,
-                    boxSizing: "border-box",
-                    border: `1px solid ${colors.borderHighlight}`,
-                    borderRadius: 10,
+                    borderRadius: 6,
+                    border: `1px solid ${password ? t.borderHighlight : t.border}`,
+                    background: t.surfaceSubtle,
+                    color: t.text,
                     outline: "none",
-                    background: colors.inputBg,
-                    color: colors.textPrimary,
-                    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
                   }}
                 />
 
@@ -745,377 +635,305 @@ export default function Home() {
                     transform: "translateY(-50%)",
                     display: "flex",
                     alignItems: "center",
-                    gap: 4,
+                    gap: 6,
                   }}
                 >
                   {password && (
                     <button
                       type="button"
                       onClick={() => setPassword("")}
-                      title="Clear input"
                       style={{
                         background: "none",
                         border: "none",
-                        color: colors.textMuted,
+                        color: t.textMuted,
                         cursor: "pointer",
-                        padding: "6px 8px",
+                        padding: "3px 6px",
                         fontSize: 12,
-                        borderRadius: 6,
+                        fontFamily: mono,
                       }}
                     >
-                      ✕
+                      Clear
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => setVisible(!visible)}
                     style={{
-                      background: colors.cardSubtle,
-                      border: `1px solid ${colors.border}`,
-                      color: colors.textSecondary,
+                      background: t.surface,
+                      border: `1px solid ${t.border}`,
+                      color: t.textSecondary,
                       cursor: "pointer",
                       fontSize: 11,
                       fontFamily: mono,
-                      fontWeight: 700,
-                      padding: "6px 10px",
-                      borderRadius: 6,
+                      fontWeight: 600,
+                      padding: "4px 8px",
+                      borderRadius: 4,
                     }}
                   >
-                    {visible ? "HIDE" : "SHOW"}
+                    {visible ? "Hide" : "Show"}
                   </button>
                 </div>
               </div>
 
-              {/* Character Heuristics Checklist */}
+              {/* Multi-segment Strength Meter */}
               {password && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    marginTop: 16,
-                  }}
-                >
-                  {checklist.map((item) => (
-                    <span
-                      key={item.label}
-                      style={{
-                        fontSize: 12,
-                        fontFamily: mono,
-                        padding: "4px 10px",
-                        borderRadius: 6,
-                        border: `1px solid ${item.passed ? colors.successBorder : colors.border}`,
-                        color: item.passed ? colors.success : colors.textMuted,
-                        background: item.passed ? colors.successBg : colors.cardSubtle,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 5,
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <span>{item.passed ? "✓" : "○"}</span>
-                      <span>{item.label}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Strength Gauge & Telemetry Strip */}
-              {strength && (
-                <div style={{ marginTop: 22 }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        style={{
-                          flex: 1,
-                          height: 6,
-                          borderRadius: 3,
-                          background: i < activeSegments ? strengthColor[strength] : colors.trackBg,
-                          boxShadow:
-                            i < activeSegments ? `0 0 10px ${strengthColor[strength]}40` : "none",
-                          transition: "background 0.25s ease, box-shadow 0.25s ease",
-                        }}
-                      />
-                    ))}
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[0, 1, 2, 3].map((segIndex) => {
+                      const isFilled = score !== null && segIndex <= score;
+                      return (
+                        <div
+                          key={segIndex}
+                          style={{
+                            flex: 1,
+                            height: 4,
+                            borderRadius: 2,
+                            background: isFilled ? getScoreColor(score) : t.track,
+                            transition: "background 0.15s ease",
+                          }}
+                        />
+                      );
+                    })}
                   </div>
 
-                  {/* Telemetry Metric Cards */}
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                      gap: 12,
-                      marginTop: 18,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginTop: 8,
                     }}
                   >
-                    <div
-                      style={{
-                        background: colors.cardSubtle,
-                        padding: "12px 14px",
-                        borderRadius: 8,
-                        border: `1px solid ${colors.border}`,
-                      }}
-                    >
-                      <span style={{ fontSize: 11, color: colors.textMuted, textTransform: "uppercase" }}>
-                        Strength Rating
-                      </span>
-                      <div
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span
                         style={{
-                          fontSize: 16,
-                          fontWeight: 800,
-                          color: strengthColor[strength],
-                          marginTop: 2,
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          color: getScoreColor(score),
                         }}
                       >
-                        {strength} Resilience
-                      </div>
+                        {strengthLabel}
+                      </span>
+                      {score !== null && (
+                        <span style={{ fontSize: 11, fontFamily: mono, color: t.textMuted }}>
+                          (Score: {score}/4)
+                        </span>
+                      )}
                     </div>
 
-                    <div
-                      style={{
-                        background: colors.cardSubtle,
-                        padding: "12px 14px",
-                        borderRadius: 8,
-                        border: `1px solid ${colors.border}`,
-                      }}
-                    >
-                      <span style={{ fontSize: 11, color: colors.textMuted, textTransform: "uppercase" }}>
-                        Offline Fast-Crack Time
+                    {crackTime && (
+                      <span style={{ fontSize: 12, fontFamily: mono, color: t.textSecondary }}>
+                        Crack resistance: ≈ {crackTime}
                       </span>
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 700,
-                          fontFamily: mono,
-                          color: colors.textPrimary,
-                          marginTop: 2,
-                        }}
-                      >
-                        ≈ {crackTime}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        background: colors.cardSubtle,
-                        padding: "12px 14px",
-                        borderRadius: 8,
-                        border: `1px solid ${colors.border}`,
-                      }}
-                    >
-                      <span style={{ fontSize: 11, color: colors.textMuted, textTransform: "uppercase" }}>
-                        k-Anonymity Hash Prefix
-                      </span>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 700,
-                          fontFamily: mono,
-                          color: colors.accent,
-                          marginTop: 2,
-                        }}
-                      >
-                        {hashPrefix ? `SHA1:${hashPrefix}…` : "Calculating…"}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Breach Intelligence Incident Card */}
-            {checking && (
+            {/* Telemetry & Breach Status Details */}
+            {password && (
               <div
                 style={{
-                  background: colors.cardBg,
-                  borderRadius: 10,
-                  border: `1px solid ${colors.border}`,
-                  padding: "14px 18px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  fontSize: 13,
-                  color: colors.textSecondary,
+                  background: t.surface,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 8,
+                  overflow: "hidden",
                 }}
               >
+                {/* Breach Status Banner */}
                 <div
                   style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: "50%",
-                    border: `2px solid ${colors.accent}`,
-                    borderTopColor: "transparent",
-                    animation: "spin 0.8s linear infinite",
-                  }}
-                />
-                Querying HaveIBeenPwned k-anonymity breach database…
-              </div>
-            )}
-
-            {!checking && breachCount !== null && breachCount > 0 && (
-              <div
-                style={{
-                  background: colors.dangerBg,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.dangerBorder}`,
-                  padding: "20px",
-                  display: "flex",
-                  gap: 16,
-                  alignItems: "flex-start",
-                }}
-              >
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 8,
-                    background: colors.danger,
-                    color: "#FFFFFF",
+                    padding: "14px 20px",
+                    borderBottom: `1px solid ${t.border}`,
+                    background:
+                      breachCount > 0 ? t.dangerBg : breachCount === 0 ? t.successBg : t.surface,
                     display: "flex",
+                    justifyContent: "space-between",
                     alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 18,
-                    fontWeight: 800,
-                    flexShrink: 0,
+                    flexWrap: "wrap",
+                    gap: 10,
                   }}
                 >
-                  !
-                </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: colors.danger }}>
-                      CRITICAL COMPROMISE DETECTED
-                    </h3>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span
                       style={{
-                        fontFamily: mono,
-                        fontSize: 11,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        background: colors.danger,
-                        color: "#FFFFFF",
-                        fontWeight: 700,
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background:
+                          breachCount > 0
+                            ? t.danger
+                            : breachCount === 0
+                            ? t.success
+                            : t.textMuted,
+                      }}
+                    />
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color:
+                            breachCount > 0
+                              ? t.danger
+                              : breachCount === 0
+                              ? t.success
+                              : t.text,
+                        }}
+                      >
+                        {checkingBreach
+                          ? "Checking breach exposure…"
+                          : breachCount > 0
+                          ? `Compromised: Found in ${breachCount.toLocaleString()} known data breaches`
+                          : breachCount === 0
+                          ? "Clean: No breach records found"
+                          : "HIBP service unreachable"}
+                      </div>
+                      <div style={{ fontSize: 11.5, color: t.textSecondary, marginTop: 2 }}>
+                        {breachCount > 0
+                          ? "This password appears in known credential dumps. Treat it as exposed regardless of complexity."
+                          : breachCount === 0
+                          ? "Validated against 900M+ pwned passwords via k-anonymity range lookup."
+                          : "Could not reach haveibeenpwned.com. Offline calculations remain accurate."}
+                      </div>
+                    </div>
+                  </div>
+
+                  {breachCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("generate")}
+                      style={{
+                        padding: "5px 11px",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: `1px solid ${t.dangerBorder}`,
+                        borderRadius: 5,
+                        background: t.surface,
+                        color: t.danger,
+                        cursor: "pointer",
                       }}
                     >
-                      {breachCount.toLocaleString()} LEAKED INSTANCES
-                    </span>
-                  </div>
-                  <p style={{ margin: "6px 0 0", fontSize: 13.5, color: colors.textPrimary, lineHeight: 1.5 }}>
-                    This exact credential exists in known public breach databases. It is vulnerable to automated credential-stuffing and dictionary attacks regardless of length or complexity.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("generate")}
+                      Generate safe alternative →
+                    </button>
+                  )}
+                </div>
+
+                {/* Technical Inspector Metrics Table */}
+                <div style={{ padding: "16px 20px" }}>
+                  <div
                     style={{
-                      marginTop: 12,
-                      padding: "8px 14px",
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      borderRadius: 6,
-                      background: colors.danger,
-                      color: "#FFFFFF",
-                      border: "none",
-                      cursor: "pointer",
+                      fontSize: 11,
+                      fontFamily: mono,
+                      fontWeight: 600,
+                      color: t.textMuted,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      marginBottom: 10,
                     }}
                   >
-                    Generate a Secure Replacement →
-                  </button>
-                </div>
-              </div>
-            )}
+                    Cryptographic &amp; Heuristic Breakdown
+                  </div>
 
-            {!checking && breachCount === 0 && (
-              <div
-                style={{
-                  background: colors.successBg,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.successBorder}`,
-                  padding: "16px 20px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                }}
-              >
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    background: colors.success,
-                    color: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 16,
-                    fontWeight: 800,
-                    flexShrink: 0,
-                  }}
-                >
-                  ✓
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: colors.success }}>
-                    Zero Public Breach Records Found
-                  </h3>
-                  <p style={{ margin: "2px 0 0", fontSize: 13, color: colors.textSecondary }}>
-                    Validated through client-side SHA-1 range matching without leaking the secret.
-                  </p>
-                </div>
-              </div>
-            )}
+                  {/* SHA-1 k-Anonymity Partition Representation */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 10px",
+                      borderRadius: 6,
+                      background: t.surfaceSubtle,
+                      fontSize: 12,
+                      fontFamily: mono,
+                      marginBottom: 12,
+                    }}
+                  >
+                    <span style={{ color: t.textMuted }}>SHA-1 Hash:</span>
+                    <div>
+                      {fullSha1 ? (
+                        <>
+                          <span style={{ color: t.accent, fontWeight: 700 }}>
+                            {fullSha1.slice(0, 5)}
+                          </span>
+                          <span style={{ color: t.textMuted }}>
+                            {"·".repeat(20)}
+                          </span>
+                          <span style={{ color: t.textSecondary }}>
+                            {fullSha1.slice(35)}
+                          </span>
+                          <span style={{ fontSize: 10, color: t.textMuted, marginLeft: 8 }}>
+                            (first 5 sent to API)
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: t.textMuted }}>Computing…</span>
+                      )}
+                    </div>
+                  </div>
 
-            {!checking && breachCount === -1 && (
-              <div
-                style={{
-                  background: colors.warningBg,
-                  borderRadius: 10,
-                  border: `1px solid ${colors.warningBorder}`,
-                  padding: "14px 18px",
-                  fontSize: 13,
-                  color: colors.warning,
-                }}
-              >
-                ⚠️ HIBP breach service temporarily unreachable. Offline entropy analysis remains active.
-              </div>
-            )}
-
-            {/* Contextual Security Advisory (zxcvbn feedback) */}
-            {(feedbackWarning || feedbackSuggestions.length > 0) && (
-              <div
-                style={{
-                  background: colors.cardBg,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  padding: "18px 20px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 14 }}>💡</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, textTransform: "uppercase" }}>
-                    Security Advisory &amp; Optimization
-                  </span>
+                  {/* Checklist Items */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8 }}>
+                    {checklist.map((item) => (
+                      <div
+                        key={item.label}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 7,
+                          fontSize: 12,
+                          color: item.passed ? t.text : t.textMuted,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: mono,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: item.passed ? t.success : t.textMuted,
+                          }}
+                        >
+                          {item.passed ? "Y" : "N"}
+                        </span>
+                        <span>{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                {feedbackWarning && (
-                  <p style={{ margin: "0 0 6px 0", fontSize: 13, fontWeight: 600, color: colors.warning }}>
-                    • {feedbackWarning}
-                  </p>
+
+                {/* Security Advisory / Feedback Warning */}
+                {(feedbackWarning || feedbackSuggestions.length > 0) && (
+                  <div
+                    style={{
+                      borderTop: `1px solid ${t.border}`,
+                      padding: "12px 20px",
+                      background: t.surfaceSubtle,
+                      fontSize: 12.5,
+                    }}
+                  >
+                    {feedbackWarning && (
+                      <div style={{ color: t.warning, fontWeight: 600, marginBottom: 2 }}>
+                        Finding: {feedbackWarning}
+                      </div>
+                    )}
+                    {feedbackSuggestions.map((sug, i) => (
+                      <div key={i} style={{ color: t.textSecondary }}>
+                        Recommendation: {sug}
+                      </div>
+                    ))}
+                  </div>
                 )}
-                {feedbackSuggestions.map((sug, i) => (
-                  <p key={i} style={{ margin: "4px 0", fontSize: 13, color: colors.textSecondary }}>
-                    • {sug}
-                  </p>
-                ))}
               </div>
             )}
 
-            {/* Interactive Attack Simulation Matrix Accordion */}
+            {/* Hardware Attack Simulation Matrix */}
             {rawCrackTimes && (
               <div
                 style={{
-                  background: colors.cardBg,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
+                  background: t.surface,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 8,
                   overflow: "hidden",
                 }}
               >
@@ -1124,85 +942,72 @@ export default function Home() {
                   onClick={() => setShowAttackMatrix(!showAttackMatrix)}
                   style={{
                     width: "100%",
-                    padding: "16px 20px",
+                    padding: "12px 20px",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                     background: "none",
                     border: "none",
                     cursor: "pointer",
-                    color: colors.textPrimary,
-                    fontSize: 13.5,
-                    fontWeight: 700,
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: t.textSecondary,
                   }}
                 >
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>⚙️</span>
-                    <span>Multi-Vector Attack Resistance Matrix</span>
-                  </span>
-                  <span style={{ color: colors.accent, fontSize: 12, fontFamily: mono }}>
-                    {showAttackMatrix ? "Hide Matrix ▲" : "Inspect Matrix ▼"}
+                  <span>Offline &amp; Online Attack Scenarios</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, color: t.accent }}>
+                    {showAttackMatrix ? "Collapse [ - ]" : "Expand [ + ]"}
                   </span>
                 </button>
 
                 {showAttackMatrix && (
-                  <div style={{ padding: "0 20px 20px", borderTop: `1px solid ${colors.border}` }}>
-                    <p style={{ fontSize: 12.5, color: colors.textMuted, margin: "14px 0" }}>
-                      Estimated time required to crack this password across various attacker capabilities:
-                    </p>
-                    <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-                        <thead>
-                          <tr style={{ borderBottom: `1px solid ${colors.border}`, textAlign: "left", color: colors.textMuted }}>
-                            <th style={{ padding: "8px 6px" }}>Attack Scenario</th>
-                            <th style={{ padding: "8px 6px" }}>Calculated Guess Rate</th>
-                            <th style={{ padding: "8px 6px" }}>Estimated Time</th>
-                            <th style={{ padding: "8px 6px" }}>Threat Class</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                            <td style={{ padding: "10px 6px", fontWeight: 600 }}>Online Login (Rate-Limited)</td>
-                            <td style={{ padding: "10px 6px", fontFamily: mono, color: colors.textSecondary }}>100 guesses / hour</td>
-                            <td style={{ padding: "10px 6px", fontFamily: mono, fontWeight: 700, color: colors.success }}>
-                              {formatCrackTime(rawCrackTimes.online_throttling_100_per_hour)}
-                            </td>
-                            <td style={{ padding: "10px 6px", color: colors.success }}>Low</td>
-                          </tr>
-                          <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                            <td style={{ padding: "10px 6px", fontWeight: 600 }}>Unthrottled API Endpoint</td>
-                            <td style={{ padding: "10px 6px", fontFamily: mono, color: colors.textSecondary }}>10 guesses / sec</td>
-                            <td style={{ padding: "10px 6px", fontFamily: mono, fontWeight: 700, color: colors.textPrimary }}>
-                              {formatCrackTime(rawCrackTimes.online_no_throttling_10_per_second)}
-                            </td>
-                            <td style={{ padding: "10px 6px", color: colors.warning }}>Moderate</td>
-                          </tr>
-                          <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
-                            <td style={{ padding: "10px 6px", fontWeight: 600 }}>Offline Slow Hash (Argon2/bcrypt)</td>
-                            <td style={{ padding: "10px 6px", fontFamily: mono, color: colors.textSecondary }}>10,000 hashes / sec</td>
-                            <td style={{ padding: "10px 6px", fontFamily: mono, fontWeight: 700, color: colors.textPrimary }}>
-                              {formatCrackTime(rawCrackTimes.offline_slow_hashing_1e4_per_second)}
-                            </td>
-                            <td style={{ padding: "10px 6px", color: colors.warning }}>High</td>
-                          </tr>
-                          <tr>
-                            <td style={{ padding: "10px 6px", fontWeight: 600 }}>Offline GPU Rig (8x RTX 4090 / MD5)</td>
-                            <td style={{ padding: "10px 6px", fontFamily: mono, color: colors.textSecondary }}>10,000,000,000 / sec</td>
-                            <td
-                              style={{
-                                padding: "10px 6px",
-                                fontFamily: mono,
-                                fontWeight: 700,
-                                color: crackTime?.includes("second") || crackTime?.includes("instant") ? colors.danger : colors.success,
-                              }}
-                            >
-                              {formatCrackTime(rawCrackTimes.offline_fast_hashing_1e10_per_second)}
-                            </td>
-                            <td style={{ padding: "10px 6px", color: colors.danger, fontWeight: 700 }}>Critical</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                  <div style={{ padding: "0 20px 16px", borderTop: `1px solid ${t.border}` }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${t.border}`, textAlign: "left", color: t.textMuted }}>
+                          <th style={{ padding: "6px 0", fontWeight: 500 }}>Vector / Environment</th>
+                          <th style={{ padding: "6px 0", fontWeight: 500 }}>Guess rate</th>
+                          <th style={{ padding: "6px 0", fontWeight: 500 }}>Estimated duration</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ borderBottom: `1px solid ${t.border}` }}>
+                          <td style={{ padding: "8px 0", color: t.text }}>Online login (rate-limited)</td>
+                          <td style={{ padding: "8px 0", fontFamily: mono, color: t.textMuted }}>100 / hour</td>
+                          <td style={{ padding: "8px 0", fontFamily: mono, fontWeight: 600, color: t.success }}>
+                            {formatCrackDuration(rawCrackTimes.online_throttling_100_per_hour)}
+                          </td>
+                        </tr>
+                        <tr style={{ borderBottom: `1px solid ${t.border}` }}>
+                          <td style={{ padding: "8px 0", color: t.text }}>Online API (unthrottled)</td>
+                          <td style={{ padding: "8px 0", fontFamily: mono, color: t.textMuted }}>10 / second</td>
+                          <td style={{ padding: "8px 0", fontFamily: mono, fontWeight: 600, color: t.text }}>
+                            {formatCrackDuration(rawCrackTimes.online_no_throttling_10_per_second)}
+                          </td>
+                        </tr>
+                        <tr style={{ borderBottom: `1px solid ${t.border}` }}>
+                          <td style={{ padding: "8px 0", color: t.text }}>Offline slow hash (Argon2 / bcrypt)</td>
+                          <td style={{ padding: "8px 0", fontFamily: mono, color: t.textMuted }}>10,000 / sec</td>
+                          <td style={{ padding: "8px 0", fontFamily: mono, fontWeight: 600, color: t.text }}>
+                            {formatCrackDuration(rawCrackTimes.offline_slow_hashing_1e4_per_second)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "8px 0", color: t.text }}>Offline GPU cluster (8x RTX 4090 / MD5)</td>
+                          <td style={{ padding: "8px 0", fontFamily: mono, color: t.textMuted }}>10,000,000,000 / sec</td>
+                          <td
+                            style={{
+                              padding: "8px 0",
+                              fontFamily: mono,
+                              fontWeight: 700,
+                              color: crackTime?.includes("second") || crackTime?.includes("instant") ? t.danger : t.success,
+                            }}
+                          >
+                            {formatCrackDuration(rawCrackTimes.offline_fast_hashing_1e10_per_second)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
@@ -1211,89 +1016,81 @@ export default function Home() {
         )}
 
         {/* ======================================================== */}
-        {/* MODULE 2: ENTROPY GENERATOR (GENERATOR VIEW)             */}
+        {/* TAB 2: PASSWORD GENERATOR                                */}
         {/* ======================================================== */}
         {activeTab === "generate" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Generated Output Card */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Generator Card */}
             <div
               style={{
-                background: colors.cardBg,
-                borderRadius: 14,
-                border: `1px solid ${colors.border}`,
-                boxShadow: isDark
-                  ? "0 20px 40px -15px rgba(0,0,0,0.5)"
-                  : "0 10px 30px -10px rgba(0,0,0,0.06)",
-                padding: "24px",
+                background: t.surface,
+                border: `1px solid ${t.border}`,
+                borderRadius: 8,
+                padding: "20px 22px",
               }}
             >
-              {/* Generator Sub-mode switch */}
+              {/* Generator Sub-mode Selector */}
               <div
                 style={{
-                  display: "flex",
-                  gap: 8,
-                  marginBottom: 18,
+                  display: "inline-flex",
+                  background: t.surfaceSubtle,
+                  borderRadius: 6,
+                  border: `1px solid ${t.border}`,
+                  padding: 2,
+                  marginBottom: 16,
                 }}
               >
                 <button
                   type="button"
                   onClick={() => setGenMode("random")}
                   style={{
-                    flex: 1,
-                    padding: "8px 12px",
-                    fontSize: 12.5,
-                    fontWeight: genMode === "random" ? 700 : 600,
-                    borderRadius: 8,
-                    border: `1px solid ${genMode === "random" ? colors.accent : colors.border}`,
-                    background: genMode === "random" ? colors.accentGlow : colors.cardSubtle,
-                    color: genMode === "random" ? colors.accent : colors.textSecondary,
+                    padding: "5px 12px",
+                    fontSize: 12,
+                    border: "none",
+                    borderRadius: 4,
+                    background: genMode === "random" ? t.surface : "transparent",
+                    color: genMode === "random" ? t.text : t.textSecondary,
                     cursor: "pointer",
-                    transition: "all 0.15s ease",
+                    fontWeight: genMode === "random" ? 600 : 400,
                   }}
                 >
-                  Alphanumeric &amp; Symbols
+                  Random String
                 </button>
                 <button
                   type="button"
                   onClick={() => setGenMode("passphrase")}
                   style={{
-                    flex: 1,
-                    padding: "8px 12px",
-                    fontSize: 12.5,
-                    fontWeight: genMode === "passphrase" ? 700 : 600,
-                    borderRadius: 8,
-                    border: `1px solid ${genMode === "passphrase" ? colors.accent : colors.border}`,
-                    background: genMode === "passphrase" ? colors.accentGlow : colors.cardSubtle,
-                    color: genMode === "passphrase" ? colors.accent : colors.textSecondary,
+                    padding: "5px 12px",
+                    fontSize: 12,
+                    border: "none",
+                    borderRadius: 4,
+                    background: genMode === "passphrase" ? t.surface : "transparent",
+                    color: genMode === "passphrase" ? t.text : t.textSecondary,
                     cursor: "pointer",
-                    transition: "all 0.15s ease",
+                    fontWeight: genMode === "passphrase" ? 600 : 400,
                   }}
                 >
-                  Memorable Diceware Passphrase
+                  Diceware Passphrase
                 </button>
               </div>
 
-              {/* Secret Display Box */}
+              {/* Secret Display & Action Bar */}
               <div
                 style={{
-                  background: colors.inputBg,
-                  borderRadius: 10,
-                  border: `1px solid ${colors.borderHighlight}`,
-                  padding: "18px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 14,
+                  background: t.surfaceSubtle,
+                  borderRadius: 6,
+                  border: `1px solid ${t.border}`,
+                  padding: "12px 14px",
                 }}
               >
                 <div
                   style={{
-                    fontSize: 17,
+                    fontSize: 16,
                     fontFamily: mono,
-                    color: colors.textPrimary,
+                    color: t.text,
                     wordBreak: "break-all",
-                    letterSpacing: "0.03em",
-                    lineHeight: 1.5,
-                    minHeight: 28,
+                    lineHeight: 1.4,
+                    minHeight: 24,
                   }}
                 >
                   {generatedPassword || "Select at least 1 character set"}
@@ -1304,136 +1101,116 @@ export default function Home() {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    marginTop: 10,
+                    paddingTop: 8,
+                    borderTop: `1px solid ${t.border}`,
                     flexWrap: "wrap",
-                    gap: 10,
-                    paddingTop: 12,
-                    borderTop: `1px solid ${colors.border}`,
+                    gap: 8,
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={generatePassword}
-                    style={{
-                      background: colors.cardSubtle,
-                      border: `1px solid ${colors.border}`,
-                      color: colors.textPrimary,
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      padding: "8px 14px",
-                      borderRadius: 6,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span>🔄</span>
-                    <span>Regenerate</span>
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={generateSecret}
+                      style={{
+                        padding: "5px 10px",
+                        fontSize: 12,
+                        fontFamily: mono,
+                        borderRadius: 4,
+                        border: `1px solid ${t.border}`,
+                        background: t.surface,
+                        color: t.text,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Regenerate
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={transferToInspector}
+                      style={{
+                        padding: "5px 10px",
+                        fontSize: 12,
+                        borderRadius: 4,
+                        border: "none",
+                        background: "none",
+                        color: t.accent,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Test in Inspector →
+                    </button>
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => copyToClipboard(generatedPassword)}
                     style={{
-                      background: copied ? colors.success : colors.accent,
-                      color: "#FFFFFF",
+                      padding: "6px 14px",
+                      fontSize: 12,
+                      fontFamily: mono,
+                      fontWeight: 600,
+                      borderRadius: 4,
                       border: "none",
-                      fontSize: 12.5,
-                      fontWeight: 700,
+                      background: copied ? t.success : t.primaryBg,
+                      color: copied ? "#FFFFFF" : t.primaryText,
                       cursor: "pointer",
-                      padding: "8px 16px",
-                      borderRadius: 6,
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      boxShadow: `0 4px 12px ${copied ? colors.successBorder : colors.accentGlow}`,
-                      transition: "all 0.15s ease",
                     }}
                   >
                     {copied ? (
                       <>
-                        <span>✓ Copied!</span>
-                        {clipboardTimer !== null && (
-                          <span style={{ fontSize: 11, fontFamily: mono }}>({clipboardTimer}s)</span>
-                        )}
+                        <span>Copied</span>
+                        {clipboardTimer !== null && <span>({clipboardTimer}s)</span>}
                       </>
                     ) : (
-                      <>
-                        <span>📋</span>
-                        <span>Copy Secret</span>
-                      </>
+                      "Copy secret"
                     )}
                   </button>
                 </div>
               </div>
 
-              {/* Real-time Generator Strength Meter */}
-              {genStrength && (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ display: "flex", gap: 5 }}>
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        style={{
-                          flex: 1,
-                          height: 5,
-                          borderRadius: 3,
-                          background: i < genActiveSegments ? strengthColor[genStrength] : colors.trackBg,
-                          transition: "background 0.2s ease",
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: 6,
-                      fontSize: 12,
-                    }}
-                  >
-                    <span style={{ color: strengthColor[genStrength], fontWeight: 700 }}>
-                      {genStrength} Rating
+              {/* Generator Strength Preview */}
+              {genStrengthLabel && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 12,
+                    marginTop: 10,
+                    color: t.textSecondary,
+                  }}
+                >
+                  <span>
+                    Rating: <strong style={{ color: t.success }}>{genStrengthLabel}</strong>
+                  </span>
+                  {genCrackTime && (
+                    <span style={{ fontFamily: mono, color: t.textMuted }}>
+                      crack resistance: ≈ {genCrackTime}
                     </span>
-                    {genCrackTime && (
-                      <span style={{ color: colors.textMuted, fontFamily: mono }}>
-                        offline crack time ≈ {genCrackTime}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* Mode 1: Random Character Customization */}
+              {/* Controls: Random String */}
               {genMode === "random" ? (
-                <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 20 }}>
-                  {/* Slider */}
+                <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+                  {/* Length Slider */}
                   <div>
                     <div
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 10,
+                        fontSize: 12,
+                        marginBottom: 6,
                       }}
                     >
-                      <label style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>
-                        Password Length
-                      </label>
-                      <span
-                        style={{
-                          fontSize: 13,
-                          fontFamily: mono,
-                          fontWeight: 700,
-                          color: colors.accent,
-                          background: colors.cardSubtle,
-                          padding: "2px 8px",
-                          borderRadius: 6,
-                          border: `1px solid ${colors.border}`,
-                        }}
-                      >
-                        {genLength} characters
+                      <span style={{ fontWeight: 600 }}>Length</span>
+                      <span style={{ fontFamily: mono, fontWeight: 700 }}>
+                        {genLength} chars
                       </span>
                     </div>
                     <input
@@ -1442,31 +1219,16 @@ export default function Home() {
                       max="48"
                       value={genLength}
                       onChange={(e) => setGenLength(parseInt(e.target.value, 10))}
-                      style={{ width: "100%" }}
+                      style={{ width: "100%", color: t.primary }}
                     />
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: 11,
-                        color: colors.textMuted,
-                        marginTop: 4,
-                        fontFamily: mono,
-                      }}
-                    >
-                      <span>8</span>
-                      <span>16 (Balanced)</span>
-                      <span>32 (Strong)</span>
-                      <span>48</span>
-                    </div>
                   </div>
 
-                  {/* Character Set Toggles */}
+                  {/* Character Sets Grid */}
                   <div>
-                    <label style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary, display: "block", marginBottom: 10 }}>
-                      Character Architecture
-                    </label>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 8 }}>
+                      Character Sets
+                    </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
                       {Object.entries(CHAR_SETS).map(([key, item]) => {
                         const isChecked = genOptions[key];
                         const isOnlyActive = isChecked && activeOptionCount <= 1;
@@ -1478,30 +1240,25 @@ export default function Home() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
-                              padding: "10px 14px",
-                              borderRadius: 8,
-                              background: colors.cardSubtle,
-                              border: `1px solid ${isChecked ? colors.accent : colors.border}`,
+                              padding: "8px 12px",
+                              borderRadius: 6,
+                              background: t.surfaceSubtle,
+                              border: `1px solid ${isChecked ? t.borderHighlight : t.border}`,
                               cursor: isOnlyActive ? "not-allowed" : "pointer",
-                              userSelect: "none",
-                              transition: "all 0.15s ease",
-                              opacity: isOnlyActive ? 0.7 : 1,
+                              fontSize: 12.5,
                             }}
                           >
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: colors.textPrimary }}>
-                                {item.label}
-                              </div>
-                              <div style={{ fontSize: 11, fontFamily: mono, color: colors.textMuted }}>
-                                {item.detail}
-                              </div>
-                            </div>
+                            <span>
+                              {item.label}{" "}
+                              <span style={{ color: t.textMuted, fontFamily: mono, fontSize: 11 }}>
+                                ({item.sample})
+                              </span>
+                            </span>
                             <input
                               type="checkbox"
                               checked={isChecked}
                               disabled={isOnlyActive}
                               onChange={() => handleOptionToggle(key)}
-                              style={{ width: 16, height: 16, accentColor: colors.accent, cursor: isOnlyActive ? "not-allowed" : "pointer" }}
                             />
                           </label>
                         );
@@ -1510,32 +1267,20 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                /* Mode 2: Passphrase Customization */
-                <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+                /* Controls: Passphrase */
+                <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+                  {/* Word count slider */}
                   <div>
                     <div
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 10,
+                        fontSize: 12,
+                        marginBottom: 6,
                       }}
                     >
-                      <label style={{ fontSize: 13, fontWeight: 700, color: colors.textPrimary }}>
-                        Word Count (Diceware)
-                      </label>
-                      <span
-                        style={{
-                          fontSize: 13,
-                          fontFamily: mono,
-                          fontWeight: 700,
-                          color: colors.accent,
-                          background: colors.cardSubtle,
-                          padding: "2px 8px",
-                          borderRadius: 6,
-                          border: `1px solid ${colors.border}`,
-                        }}
-                      >
+                      <span style={{ fontWeight: 600 }}>Word count</span>
+                      <span style={{ fontFamily: mono, fontWeight: 700 }}>
                         {wordCount} words
                       </span>
                     </div>
@@ -1545,37 +1290,25 @@ export default function Home() {
                       max="7"
                       value={wordCount}
                       onChange={(e) => setWordCount(parseInt(e.target.value, 10))}
-                      style={{ width: "100%" }}
+                      style={{ width: "100%", color: t.primary }}
                     />
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: 11,
-                        color: colors.textMuted,
-                        marginTop: 4,
-                        fontFamily: mono,
-                      }}
-                    >
-                      <span>3</span>
-                      <span>4 (Recommended)</span>
-                      <span>7</span>
-                    </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                  {/* Options */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
                     <div
                       style={{
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        background: colors.cardSubtle,
-                        border: `1px solid ${colors.border}`,
                         display: "flex",
-                        justifyContent: "space-between",
                         alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        background: t.surfaceSubtle,
+                        border: `1px solid ${t.border}`,
+                        fontSize: 12.5,
                       }}
                     >
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>Separator</span>
+                      <span>Separator</span>
                       <div style={{ display: "flex", gap: 4 }}>
                         {["-", ".", "_", " "].map((s) => (
                           <button
@@ -1583,17 +1316,17 @@ export default function Home() {
                             type="button"
                             onClick={() => setSeparator(s)}
                             style={{
-                              padding: "4px 8px",
-                              fontSize: 12,
+                              padding: "2px 7px",
+                              fontSize: 11,
                               fontFamily: mono,
                               borderRadius: 4,
-                              border: `1px solid ${separator === s ? colors.accent : colors.border}`,
-                              background: separator === s ? colors.accent : colors.cardBg,
-                              color: separator === s ? "#FFFFFF" : colors.textPrimary,
+                              border: `1px solid ${separator === s ? t.borderHighlight : t.border}`,
+                              background: separator === s ? t.surface : "transparent",
+                              color: separator === s ? t.text : t.textMuted,
                               cursor: "pointer",
                             }}
                           >
-                            {s === " " ? "␣" : s}
+                            {s === " " ? "space" : s}
                           </button>
                         ))}
                       </div>
@@ -1601,89 +1334,76 @@ export default function Home() {
 
                     <label
                       style={{
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        background: colors.cardSubtle,
-                        border: `1px solid ${colors.border}`,
                         display: "flex",
-                        justifyContent: "space-between",
                         alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        background: t.surfaceSubtle,
+                        border: `1px solid ${t.border}`,
+                        fontSize: 12.5,
                         cursor: "pointer",
                       }}
                     >
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>Capitalize Words</span>
+                      <span>Capitalize words</span>
                       <input
                         type="checkbox"
                         checked={capitalizeWords}
                         onChange={(e) => setCapitalizeWords(e.target.checked)}
-                        style={{ width: 16, height: 16, accentColor: colors.accent, cursor: "pointer" }}
                       />
                     </label>
 
                     <label
                       style={{
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        background: colors.cardSubtle,
-                        border: `1px solid ${colors.border}`,
                         display: "flex",
-                        justifyContent: "space-between",
                         alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        background: t.surfaceSubtle,
+                        border: `1px solid ${t.border}`,
+                        fontSize: 12.5,
                         cursor: "pointer",
                       }}
                     >
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>Append Random Digit</span>
+                      <span>Append random digit</span>
                       <input
                         type="checkbox"
                         checked={includeNumberInPassphrase}
                         onChange={(e) => setIncludeNumberInPassphrase(e.target.checked)}
-                        style={{ width: 16, height: 16, accentColor: colors.accent, cursor: "pointer" }}
                       />
                     </label>
                   </div>
                 </div>
               )}
-
-              {/* Action Bridge Button */}
-              <button
-                type="button"
-                onClick={sendToChecker}
-                style={{
-                  width: "100%",
-                  marginTop: 24,
-                  padding: "14px",
-                  fontSize: 13.5,
-                  fontWeight: 700,
-                  color: "#FFFFFF",
-                  background: `linear-gradient(135deg, ${colors.accent}, #0284C7)`,
-                  border: "none",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  boxShadow: `0 4px 16px ${colors.accentGlow}`,
-                  transition: "all 0.15s ease",
-                }}
-              >
-                Deploy this Secret to Credential Auditor →
-              </button>
             </div>
           </div>
         )}
       </main>
 
-      {/* Footer Strip */}
+      {/* Grounded Minimalist Footer */}
       <footer
         style={{
-          borderTop: `1px solid ${colors.border}`,
-          padding: "16px 24px",
-          textAlign: "center",
-          fontSize: 12,
-          color: colors.textMuted,
-          background: isDark ? "rgba(15, 23, 42, 0.4)" : "#F1F5F9",
+          borderTop: `1px solid ${t.border}`,
+          padding: "14px 20px",
+          fontSize: 11.5,
+          color: t.textMuted,
+          background: t.surface,
         }}
       >
-        <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-          <span>CYBERSHIELD LAB // Zero-Knowledge Architecture</span>
-          <span>NIST SP 800-63B &bull; Web Crypto CSPRNG &bull; HaveIBeenPwned API</span>
+        <div
+          style={{
+            maxWidth: 880,
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <span>KEYGUARD &bull; Client-side security verification</span>
+          <span style={{ fontFamily: mono }}>NIST SP 800-63B &bull; HIBP k-anonymity &bull; Web Crypto CSPRNG</span>
         </div>
       </footer>
     </div>
