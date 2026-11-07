@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "CYBERSHIELD // Zero-Knowledge Password Security & Entropy Lab",
-  description: "Enterprise-grade client-side credential auditing, HaveIBeenPwned k-anonymity breach detection, and hardware-backed CSPRNG entropy generator.",
+  title: "Keyguard — Password Security & Entropy Inspector",
+  description: "Client-side password entropy analysis, HaveIBeenPwned k-anonymity breach verification, and cryptographic generator.",
 };
 
 export default function RootLayout({ children }) {
