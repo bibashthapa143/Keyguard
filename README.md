@@ -102,7 +102,6 @@ password-checker/
 ```
 
 ---
-
 ## Getting Started
 
 ### Prerequisites
@@ -130,7 +129,6 @@ password-checker/
    ```
    http://localhost:3000
    ```
-
 ---
 
 ## Compliance & Standards Reference
